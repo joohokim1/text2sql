@@ -2,11 +2,18 @@ import os
 import anthropic
 from google.cloud import bigquery
 
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+anthropic_key_path = os.path.join(current_dir, 'anthropic_key.txt')
+with open (anthropic_key_path, 'r') as anthropic_key_file:
+    anthropic_key = anthropic_key_file.read()
+
+bigquery_key_path = os.path.join(current_dir, "bigquery_key.json")
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = bigquery_key_path
+
 def execute_query_and_get_results(sql_query):
     try:
         # Google Cloud BigQuery 클라이언트 설정
-        key_path = os.path.expanduser("~/bigquery_key.json")
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = key_path
         client = bigquery.Client()
 
         print('Connected to BigQuery!')
@@ -29,8 +36,9 @@ def execute_query_and_get_results(sql_query):
         print('BigQuery connection closed')
 
 def get_sql_query_from_claude(natural_language_query, context=None):
+
     client = anthropic.Anthropic(
-        api_key=os.getenv('ANTHROPIC_API_KEY')
+        api_key=anthropic_key
     )
 
     message = client.messages.create(
@@ -52,7 +60,5 @@ def get_sql_query_from_claude(natural_language_query, context=None):
             }
         ]
     )
-    # print(message.content[0].text)
-    # print(message.usage)
     return message.content[0].text
 
