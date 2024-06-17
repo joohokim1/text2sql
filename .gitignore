@@ -1,2 +1,7 @@
 anthropic_key.txt
 bigquery_key.json
+
+__blobstorage/
+__pycache__/
+myvenv/
+*.json
