@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import backend as be
+from google.cloud import bigquery
 
 # Streamlit 설정
 st.set_page_config(
@@ -10,6 +11,20 @@ st.set_page_config(
 )
 
 def sql_generator():
+    workflow_name = st.query_params.get("workflow_name", [None])[0]
+    if workflow_name:
+        # TODO get data from db & display 
+        workflow_query = "SELECT * FROM metatron.adot_sql_generator_log WHERE WORKFLOW_NAME = @workflow_name ORDER BY SEQ ASC"
+        workflow_query_params = [
+            bigquery.ScalarQueryParameter("workflow_name", "STRING", workflow_name)
+        ]
+        columns, results = be.execute_query_and_get_results(workflow_query, workflow_query_params)
+
+        grid.write(f"{len(columns)} Columns | {len(results)} Rows")
+        df = pd.DataFrame(results, columns=columns)
+        grid.dataframe(df, use_container_width=True)
+
+        # results = be.execute_query_and_get_results(workflow_query, st.query_params["workflow_name"])
     def convert_newlines_to_br(text):
         return text.replace("\n", "<br>")
 
