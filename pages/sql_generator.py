@@ -20,9 +20,9 @@ def sql_generator():
         ]
         columns, results = be.execute_query_and_get_results(workflow_query, workflow_query_params)
 
-        grid.write(f"{len(columns)} Columns | {len(results)} Rows")
-        df = pd.DataFrame(results, columns=columns)
-        grid.dataframe(df, use_container_width=True)
+        # grid.write(f"{len(columns)} Columns | {len(results)} Rows")
+        # df = pd.DataFrame(results, columns=columns)
+        # grid.dataframe(df, use_container_width=True)
 
         # results = be.execute_query_and_get_results(workflow_query, st.query_params["workflow_name"])
     def convert_newlines_to_br(text):
