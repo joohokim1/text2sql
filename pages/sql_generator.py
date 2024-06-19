@@ -60,6 +60,7 @@ def sql_generator():
         st.session_state.results = []
 
     def handle_execute_button(sql_query, idx):
+        user_query = ''
         sql_query = ''
         columns = ''
         results = ''
@@ -69,6 +70,7 @@ def sql_generator():
             columns, results = st.session_state.results[i]
         else: 
             # Claude API 호출하여 SQL 쿼리 생성
+            user_query = query
             sql_query = be.get_sql_query_from_claude(query)
             if sql_query:
                 columns, results = be.execute_query_and_get_results(sql_query)
@@ -81,7 +83,10 @@ def sql_generator():
             grid.write(f"{len(columns)} Columns | {len(results)} Rows")
             df = pd.DataFrame(results, columns=columns)
             grid.dataframe(df, use_container_width=True)
-
+        
+        # Insert data
+        be.insert_data("text2sql-1", "Imported", sql_query.strip(), user_query, True, None)
+        print(f"Inserted data successfully!")
 
     if query:
         handle_execute_button(query , '')

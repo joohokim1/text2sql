@@ -1,6 +1,8 @@
 import os
+from datetime import datetime
 import anthropic
 from google.cloud import bigquery
+import pandas as pd
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -38,6 +40,7 @@ def execute_query_and_get_results(sql_query, params=None):
         return None, None
 
     finally:
+        client.close()
         print('BigQuery connection closed')
 
 def get_sql_query_from_claude(natural_language_query, context=None):
@@ -67,3 +70,33 @@ def get_sql_query_from_claude(natural_language_query, context=None):
     )
     return message.content[0].text
 
+def insert_data(workflow_name, type, sql, question, appliedYn, table_name):
+        try:
+            # Google Cloud BigQuery 클라이언트 설정
+            client = bigquery.Client()
+            sql = sql.replace("\n", " ")
+            update_date = datetime.now()
+
+
+            df = pd.DataFrame({
+                "workflow_name": [workflow_name],
+                "type": [type],
+                "sql": [sql],
+                "seq": [1], # 임시
+                "question": [question],
+                "appliedYn": [appliedYn],
+                "update": [update_date],
+                "table_name": [table_name]
+            })
+
+            table_id = 'adot-412309.metatron.adot_sql_generator_log'
+            table = client.get_table(table_id)
+            # 데이터프레임을 테이블에 삽입
+            client.load_table_from_dataframe(df, table)
+
+        except Exception as e:
+            print(f"Error: {e}")
+            return None, None
+        finally:
+            client.close()
+            print('BigQuery connection closed')
