@@ -77,16 +77,16 @@ def sql_generator():
 
                 st.session_state.queries.append((query, sql_query))
                 st.session_state.results.append((columns, results))
+
+                # Insert data
+                be.insert_data("test", "Imported", sql_query.strip(), user_query, True, None)
+                print(f"Inserted data successfully!")
         
         rule.code(sql_query, language='sql')
         if results:
             grid.write(f"{len(columns)} Columns | {len(results)} Rows")
             df = pd.DataFrame(results, columns=columns)
             grid.dataframe(df, use_container_width=True)
-        
-        # Insert data
-        be.insert_data("text2sql-1", "Imported", sql_query.strip(), user_query, True, None)
-        print(f"Inserted data successfully!")
 
     if query:
         handle_execute_button(query , '')
@@ -95,6 +95,7 @@ def sql_generator():
     for i, (user_query, sql_query) in enumerate(st.session_state.queries):
         with st.expander(f"사용자 질의 {i + 1}", expanded=False):
             if st.button("▶︎ 재실행", key=f"execute_button_{i}"):
+                print(f"Execute previous query: {i}")
                 handle_execute_button(sql_query, i)
             formatted_query = user_query.replace("\n", "<br>")
             st.markdown(f"<div class='small-font'>{formatted_query}</div>", unsafe_allow_html=True)
