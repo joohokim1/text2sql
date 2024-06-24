@@ -14,6 +14,79 @@ with open (anthropic_key_path, 'r') as anthropic_key_file:
 bigquery_key_path = os.path.join(current_dir, config.get_config('bigquery.key.file'))
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = bigquery_key_path
 
+def on_app_start():
+    print("Check required table exists...")
+    dataset_id = "metatron"
+    required_table = [
+        {
+            "id": "dataset",
+            "schema": [
+                bigquery.SchemaField("ds_id", "INTEGER", mode="REQUIRED", description="데이터셋 ID"),
+                bigquery.SchemaField("ds_name", "STRING", mode="REQUIRED", description="데이터셋명"),
+                bigquery.SchemaField("ds_type", "STRING", mode="REQUIRED", description="데이터셋 타입(Imported or Wrangled)"),
+                bigquery.SchemaField("table_name", "STRING", mode="NULLABLE", description="원본 테이블명"),
+                bigquery.SchemaField("created_at", "TIMESTAMP", mode="NULLABLE"),
+                bigquery.SchemaField("updated_at", "TIMESTAMP", mode="NULLABLE"),
+            ]
+        },
+        {
+            "id": "dataset_dataflow",
+            "schema": [
+                bigquery.SchemaField("id", "INTEGER", mode="REQUIRED", description="ID"),
+                bigquery.SchemaField("ds_id", "INTEGER", mode="REQUIRED", description="데이터셋 ID"),
+                bigquery.SchemaField("df_id", "INTEGER", mode="REQUIRED", description="데이터플로우 ID"),
+                bigquery.SchemaField("created_at", "TIMESTAMP", mode="NULLABLE"),
+                bigquery.SchemaField("updated_at", "TIMESTAMP", mode="NULLABLE"),
+            ]
+        },
+        {
+            "id": "dataflow",
+            "schema": [
+                bigquery.SchemaField("df_id", "INTEGER", mode="REQUIRED", description="데이터플로우 ID"),
+                bigquery.SchemaField("df_name", "STRING", mode="REQUIRED", description="데이터플로우명"),
+                bigquery.SchemaField("desc", "STRING", mode="NULLABLE", description="데이터플로우 설명"),
+                bigquery.SchemaField("created_at", "TIMESTAMP", mode="NULLABLE"),
+                bigquery.SchemaField("updated_at", "TIMESTAMP", mode="NULLABLE"),
+            ]
+        },
+        {
+            "id": "rule",
+            "schema": [
+                bigquery.SchemaField("rule_id", "INTEGER", mode="REQUIRED", description="룰 ID"),
+                bigquery.SchemaField("ds_id", "INTEGER", mode="REQUIRED", description="데이터셋 ID"),
+                bigquery.SchemaField("user_question", "STRING", mode="REQUIRED", description="사용자 질의 내용"),
+                bigquery.SchemaField("result_sql", "STRING", mode="NULLABLE", description="생성된 SQL"), # SQL이 나오지 않는 질문을 할 경우 예외 처리 필요
+                bigquery.SchemaField("result_table_name", "STRING", mode="NULLABLE", description="result_sql CTAS로 생성된 테이블명"),
+                bigquery.SchemaField("applied_yn", "STRING", mode="NULLABLE", description="적용 여부"),
+                bigquery.SchemaField("created_at", "TIMESTAMP", mode="NULLABLE"),
+                bigquery.SchemaField("updated_at", "TIMESTAMP", mode="NULLABLE"),
+            ]
+        },
+    ]
+
+    # Google Cloud BigQuery 클라이언트 설정
+    client = bigquery.Client(location=config.get_config('bigquery.region'))
+    print('Connected to BigQuery!')
+
+    for table in required_table:
+        try:
+            # 테이블 참조 생성
+            table_ref = client.dataset(dataset_id).table(table['id'])
+
+            # 테이블이 존재하는지 확인
+            client.get_table(table_ref)
+            print(f"Table {table['id']} already exists.")
+
+        except Exception:
+            # 테이블이 없으면 생성
+            new_table = bigquery.Table(table_ref, schema=table['schema'])
+            new_table = client.create_table(new_table)
+            print(f"Table {table['id']} created.")
+
+
+    client.close()
+    print('BigQuery connection closed!')
+
 def execute_query_and_get_results(sql_query, params=None):
     try:
         # Google Cloud BigQuery 클라이언트 설정
@@ -42,7 +115,7 @@ def execute_query_and_get_results(sql_query, params=None):
 
     finally:
         client.close()
-        print('BigQuery connection closed')
+        print('BigQuery connection closed!')
 
 def get_sql_query_from_claude(natural_language_query, context=None):
 
@@ -98,4 +171,4 @@ def insert_data(workflow_name, type, sql, question, appliedYn, table_name):
             return None, None
         finally:
             client.close()
-            print('BigQuery connection closed')
+            print('BigQuery connection closed!')

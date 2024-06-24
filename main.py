@@ -1,4 +1,5 @@
-import streamlit as st 
+import streamlit as st
+import backend as be
 
 # Streamlit 설정
 st.set_page_config(
@@ -6,6 +7,12 @@ st.set_page_config(
     page_icon="🤖",
     layout="wide",
 )
+
+# 앱이 실행될 때 한 번만 호출되도록 설정
+if 'initialized' not in st.session_state:
+    be.on_app_start()
+    st.session_state['initialized'] = True
+
 
 st.title("Text2SQL Generator")
 
