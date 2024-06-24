@@ -3,20 +3,21 @@ from datetime import datetime
 import anthropic
 from google.cloud import bigquery
 import pandas as pd
+import config
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
-anthropic_key_path = os.path.join(current_dir, 'anthropic_key.txt')
+anthropic_key_path = os.path.join(current_dir, config.get_config('anthropic.key.file'))
 with open (anthropic_key_path, 'r') as anthropic_key_file:
     anthropic_key = anthropic_key_file.read()
 
-bigquery_key_path = os.path.join(current_dir, "bigquery_key.json")
+bigquery_key_path = os.path.join(current_dir, config.get_config('bigquery.key.file'))
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = bigquery_key_path
 
 def execute_query_and_get_results(sql_query, params=None):
     try:
         # Google Cloud BigQuery 클라이언트 설정
-        client = bigquery.Client(location="US")
+        client = bigquery.Client(location=config.get_config('bigquery.region'))
 
         print('Connected to BigQuery!')
 
@@ -50,10 +51,8 @@ def get_sql_query_from_claude(natural_language_query, context=None):
     )
 
     message = client.messages.create(
-        # model="claude-3-haiku-20240307",
-        model="claude-3-sonnet-20240229",
-        # model="claude-3-opus-20240229",
-        system="너는 Google BigQuery 전문가야. 답변은 부연설명 없이 개행문자가 포함되지 않고 정렬된 SQL 형태로 답변해줘. 컬럼명은 항상 영문으로 설정하고, 지시하지 않은 타입 변환이나 치환은 하지마. Let's think step by step.",
+        model=config.get_config('anthropic.model'),
+        system="너는 Google BigQuery 전문가야. 답변은 부연설명 없이 개행문자가 포함되지 않고 정렬된 SQL 형태로 답변해줘. 컬럼명은 항상 영문으로 설정하고, 지시하지 않은 타입 변환이나 치환과 불필요한 distinct, order by 하지마. 만약 질문 자체가 SELECT SQL문이라면, 질문 그대로 정렬된 SQL문으로 응답해줘. Let's think step by step.",
         max_tokens=1024,
         temperature=0,
         messages=[

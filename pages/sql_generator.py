@@ -12,7 +12,7 @@ st.set_page_config(
 
 def sql_generator():
     workflow_name = st.query_params.get("workflow_name", [None])
-    if workflow_name:
+    if workflow_name and workflow_name != [None]:
         # TODO get data from db & display 
         workflow_query = "SELECT * FROM metatron.adot_sql_generator_log WHERE WORKFLOW_NAME = @workflow_name ORDER BY SEQ ASC"
         workflow_query_params = [
