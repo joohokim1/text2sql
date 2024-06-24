@@ -15,47 +15,52 @@ bigquery_key_path = os.path.join(current_dir, config.get_config('bigquery.key.fi
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = bigquery_key_path
 
 def on_app_start():
+    print("Check required table exists...")
     dataset_id = "metatron"
     required_table = [
-        {"id": "dataset",
-         "schema": [
-             bigquery.SchemaField("ds_id", "INTEGER", mode="REQUIRED", description="데이터셋 ID"),
-             bigquery.SchemaField("ds_name", "STRING", mode="REQUIRED", description="데이터셋명"),
-             bigquery.SchemaField("ds_type", "STRING", mode="REQUIRED", description="데이터셋 타입(Imported or Wrangled)"),
-             bigquery.SchemaField("table_name", "STRING", mode="NULLABLE", description="원본 테이블명"),
-             bigquery.SchemaField("created_at", "DATE", mode="REQUIRED"),
-             bigquery.SchemaField("updated_at", "DATE", mode="REQUIRED"),
-         ]
+        {
+            "id": "dataset",
+            "schema": [
+                bigquery.SchemaField("ds_id", "INTEGER", mode="REQUIRED", description="데이터셋 ID"),
+                bigquery.SchemaField("ds_name", "STRING", mode="REQUIRED", description="데이터셋명"),
+                bigquery.SchemaField("ds_type", "STRING", mode="REQUIRED", description="데이터셋 타입(Imported or Wrangled)"),
+                bigquery.SchemaField("table_name", "STRING", mode="NULLABLE", description="원본 테이블명"),
+                bigquery.SchemaField("created_at", "DATE", mode="REQUIRED"),
+                bigquery.SchemaField("updated_at", "DATE", mode="REQUIRED"),
+            ]
         },
-        {"id": "dataset_dataflow",
-         "schema": [
-             bigquery.SchemaField("id", "INTEGER", mode="REQUIRED", description="ID"),
-             bigquery.SchemaField("ds_id", "INTEGER", mode="REQUIRED", description="데이터셋 ID"),
-             bigquery.SchemaField("df_id", "INTEGER", mode="REQUIRED", description="데이터플로우 ID"),
-             bigquery.SchemaField("created_at", "DATE", mode="REQUIRED"),
-             bigquery.SchemaField("updated_at", "DATE", mode="REQUIRED"),
-         ]
+        {
+            "id": "dataset_dataflow",
+            "schema": [
+                bigquery.SchemaField("id", "INTEGER", mode="REQUIRED", description="ID"),
+                bigquery.SchemaField("ds_id", "INTEGER", mode="REQUIRED", description="데이터셋 ID"),
+                bigquery.SchemaField("df_id", "INTEGER", mode="REQUIRED", description="데이터플로우 ID"),
+                bigquery.SchemaField("created_at", "DATE", mode="REQUIRED"),
+                bigquery.SchemaField("updated_at", "DATE", mode="REQUIRED"),
+            ]
         },
-        {"id": "dataflow",
-         "schema": [
-             bigquery.SchemaField("df_id", "INTEGER", mode="REQUIRED", description="데이터플로우 ID"),
-             bigquery.SchemaField("df_name", "STRING", mode="REQUIRED", description="데이터플로우명"),
-             bigquery.SchemaField("desc", "STRING", mode="NULLABLE", description="데이터플로우 설명"),
-             bigquery.SchemaField("created_at", "DATE", mode="REQUIRED"),
-             bigquery.SchemaField("updated_at", "DATE", mode="REQUIRED"),
-         ]
+        {
+            "id": "dataflow",
+            "schema": [
+                bigquery.SchemaField("df_id", "INTEGER", mode="REQUIRED", description="데이터플로우 ID"),
+                bigquery.SchemaField("df_name", "STRING", mode="REQUIRED", description="데이터플로우명"),
+                bigquery.SchemaField("desc", "STRING", mode="NULLABLE", description="데이터플로우 설명"),
+                bigquery.SchemaField("created_at", "DATE", mode="REQUIRED"),
+                bigquery.SchemaField("updated_at", "DATE", mode="REQUIRED"),
+            ]
         },
-        {"id": "rule",
-         "schema": [
-             bigquery.SchemaField("rule_id", "INTEGER", mode="REQUIRED", description="룰 ID"),
-             bigquery.SchemaField("ds_id", "INTEGER", mode="REQUIRED", description="데이터셋 ID"),
-             bigquery.SchemaField("user_question", "STRING", mode="REQUIRED", description="사용자 질의 내용"),
-             bigquery.SchemaField("result_sql", "STRING", mode="NULLABLE", description="생성된 SQL"), # SQL이 나오지 않는 질문을 할 경우 예외 처리 필요
-             bigquery.SchemaField("result_table_name", "STRING", mode="NULLABLE", description="result_sql CTAS로 생성된 테이블명"),
-             bigquery.SchemaField("applied_yn", "STRING", mode="NULLABLE", description="적용 여부"),
-             bigquery.SchemaField("created_at", "DATE", mode="REQUIRED"),
-             bigquery.SchemaField("updated_at", "DATE", mode="REQUIRED"),
-         ]
+        {
+            "id": "rule",
+            "schema": [
+                bigquery.SchemaField("rule_id", "INTEGER", mode="REQUIRED", description="룰 ID"),
+                bigquery.SchemaField("ds_id", "INTEGER", mode="REQUIRED", description="데이터셋 ID"),
+                bigquery.SchemaField("user_question", "STRING", mode="REQUIRED", description="사용자 질의 내용"),
+                bigquery.SchemaField("result_sql", "STRING", mode="NULLABLE", description="생성된 SQL"), # SQL이 나오지 않는 질문을 할 경우 예외 처리 필요
+                bigquery.SchemaField("result_table_name", "STRING", mode="NULLABLE", description="result_sql CTAS로 생성된 테이블명"),
+                bigquery.SchemaField("applied_yn", "STRING", mode="NULLABLE", description="적용 여부"),
+                bigquery.SchemaField("created_at", "DATE", mode="REQUIRED"),
+                bigquery.SchemaField("updated_at", "DATE", mode="REQUIRED"),
+            ]
         },
     ]
 
