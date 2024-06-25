@@ -25,6 +25,7 @@ def sql_generator():
         # grid.dataframe(df, use_container_width=True)
 
         # results = be.execute_query_and_get_results(workflow_query, st.query_params["workflow_name"])
+    
     def convert_newlines_to_br(text):
         return text.replace("\n", "<br>")
 
@@ -65,28 +66,36 @@ def sql_generator():
         columns = ''
         results = ''
 
+        # 이전 질의 재실행
         if idx != '':
             user_query, sql_query = st.session_state.queries[i]
             columns, results = st.session_state.results[i]
+
+            print(f"질의 : {user_query}")
+            print(f"쿼리 실행 : {sql_query}")
+        # 새로운 질의 실행
         else: 
+            print(f"질의 : {query}")
+
             # Claude API 호출하여 SQL 쿼리 생성
             user_query = query
-            sql_query = be.get_sql_query_from_claude(query)
+            sql_query = be.get_sql_query_from_claude(user_query)
+
             if sql_query:
                 columns, results = be.execute_query_and_get_results(sql_query)
 
                 st.session_state.queries.append((query, sql_query))
                 st.session_state.results.append((columns, results))
 
-                # Insert data
-                be.insert_data("test", "Imported", sql_query.strip(), user_query, True, None)
-                print(f"Inserted data successfully!")
+                # Save question and relative sql
+                be.save_question(1, user_query, sql_query.strip()) # TODO: ds_id 수정
         
         rule.code(sql_query, language='sql')
         if results:
             grid.write(f"{len(columns)} Columns | {len(results)} Rows")
             df = pd.DataFrame(results, columns=columns)
             grid.dataframe(df, use_container_width=True)
+            print("Successfully Queried!")
 
     if query:
         handle_execute_button(query , '')
@@ -96,7 +105,7 @@ def sql_generator():
         with st.expander(f"사용자 질의 {i + 1}", expanded=False):
             if st.button("▶︎ 재실행", key=f"execute_button_{i}"):
                 print(f"Execute previous query: {i}")
-                handle_execute_button(sql_query, i)
+                handle_execute_button(None, i)
             formatted_query = user_query.replace("\n", "<br>")
             st.markdown(f"<div class='small-font'>{formatted_query}</div>", unsafe_allow_html=True)
 

@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import datetime
 import anthropic
 from google.cloud import bigquery
@@ -142,29 +143,48 @@ def get_sql_query_from_claude(natural_language_query, context=None):
     )
     return message.content[0].text
 
-def insert_data(workflow_name, type, sql, question, appliedYn, table_name):
+def save_question(ds_id, user_question, result_sql):
         try:
             # Google Cloud BigQuery 클라이언트 설정
             client = bigquery.Client()
-            sql = sql.replace("\n", " ")
-            update_date = datetime.now()
+            result_sql = result_sql.replace("\n", " ")
+            current_time = datetime.utcnow()
+            
+            result_table_name = ''
 
+            # Check if result_sql is a CTAS statement and extract the table name
+            pattern = r'^\s*CREATE\s+(OR\s+REPLACE\s+)?TABLE\s+(\S+)\s+AS\s+SELECT'
+            ctas_match = re.match(pattern, result_sql, re.IGNORECASE)
+            if ctas_match:
+                result_table_name = ctas_match.group(2)
+            print(f"result_table_name: {result_table_name}")
+            
+            # Get rule id
+            query = """
+                SELECT COALESCE(MAX(rule_id), 0) + 1 AS next_rule_id
+                FROM `metatron.rule`
+            """
+            query_job = client.query(query)
+            next_rule_id = [row.next_rule_id for row in query_job.result()][0]
 
             df = pd.DataFrame({
-                "workflow_name": [workflow_name],
-                "type": [type],
-                "sql": [sql],
-                "seq": [1], # 임시
-                "question": [question],
-                "appliedYn": [appliedYn],
-                "update": [update_date],
-                "table_name": [table_name]
+                "rule_id": [next_rule_id],
+                "ds_id": [ds_id],
+                "user_question": [user_question],
+                "result_sql": [result_sql],
+                "result_table_name": [result_table_name],
+                "applied_yn": ['Y'],
+                "created_at": [current_time],
+                "updated_at": [current_time]
             })
-
-            table_id = 'adot-412309.metatron.adot_sql_generator_log'
-            table = client.get_table(table_id)
+            
+            table_ref = client.dataset("metatron").table("rule")
+            table = client.get_table(table_ref)
             # 데이터프레임을 테이블에 삽입
             client.load_table_from_dataframe(df, table)
+
+            if result_table_name:
+                print(f"결과 CTAS TABLE : {result_table_name}")
 
         except Exception as e:
             print(f"Error: {e}")
