@@ -10,26 +10,21 @@ st.set_page_config(
     layout="wide",
 )
 
+# Get dataset id
+if 'ds_id' in st.session_state:
+    ds_id = st.session_state['ds_id']
+    print(f"ds_id is {ds_id}")
+else:
+    print('No ds_id exists!')
+    st.warning('Dataset을 선택해 주세요.', icon="⚠️")
+    # st.switch_page("pages/dataset.py")
+
+# 세션 초기화
+st.session_state.queries = []
+st.session_state.results = []
+
+
 def sql_generator():
-    workflow_name = st.query_params.get("workflow_name", [None])
-    if workflow_name and workflow_name != [None]:
-        # TODO get data from db & display 
-        workflow_query = "SELECT * FROM metatron.adot_sql_generator_log WHERE WORKFLOW_NAME = @workflow_name ORDER BY SEQ ASC"
-        workflow_query_params = [
-            bigquery.ScalarQueryParameter("workflow_name", "STRING", workflow_name)
-        ]
-        columns, results = be.execute_query_and_get_results(workflow_query, workflow_query_params)
-        
-        # grid.write(f"{len(columns)} Columns | {len(results)} Rows")
-        # df = pd.DataFrame(results, columns=columns)
-        # grid.dataframe(df, use_container_width=True)
-
-        # results = be.execute_query_and_get_results(workflow_query, st.query_params["workflow_name"])
-    
-    def convert_newlines_to_br(text):
-        return text.replace("\n", "<br>")
-
-
     st.title("Text2SQL Generator")
 
     # 상단 레이아웃
@@ -50,6 +45,22 @@ def sql_generator():
         </style>
         """, unsafe_allow_html=True)
 
+    # 이전 질의 표시
+    if ds_id:
+        print('Display previous question.')
+        # Get previous questions and sqls
+        query = f"""
+            SELECT user_question, result_sql
+            FROM metatron.rule 
+            WHERE DS_ID = {ds_id} 
+              AND APPLIED_YN = 'Y' 
+            ORDER BY UPDATED_AT DESC
+            """
+        columns, results = be.execute_query_and_get_results(query)
+        
+        for row in results:
+            st.session_state.queries.append((row[0], row[1]))
+        
     # 사용자 입력
     query = st.chat_input("질의할 내용을 입력해 주세요.")
 
@@ -66,10 +77,24 @@ def sql_generator():
         columns = ''
         results = ''
 
+        # 이전 질의 최초 실행
+        if idx != '' and len(st.session_state.results) == 0:
+            user_query, sql_query = st.session_state.queries[idx]
+
+            if sql_query:
+                columns, results = be.execute_query_and_get_results(sql_query)
+
+                if len(st.session_state.results) <= idx:
+                    # idx에 해당하는 인덱스가 없으면 빈 리스트로 초기화
+                    while len(st.session_state.results) <= idx:
+                        st.session_state.results.append([])
+
+                    st.session_state.results[idx] = (columns, results)
+
         # 이전 질의 재실행
-        if idx != '':
-            user_query, sql_query = st.session_state.queries[i]
-            columns, results = st.session_state.results[i]
+        elif idx != '':
+            user_query, sql_query = st.session_state.queries[idx]
+            columns, results = st.session_state.results[idx]
 
             print(f"질의 : {user_query}")
             print(f"쿼리 실행 : {sql_query}")
@@ -88,7 +113,11 @@ def sql_generator():
                 st.session_state.results.append((columns, results))
 
                 # Save question and relative sql
-                be.save_question(1, user_query, sql_query.strip()) # TODO: ds_id 수정
+                if st.session_state.results[i]:
+                    # TODO: 기존 사용자 질의 최초 실행 시 세션에 넣는 작업
+                    print()
+                elif ds_id:
+                    be.save_question(ds_id, user_query, sql_query.strip())
         
         rule.code(sql_query, language='sql')
         if results:

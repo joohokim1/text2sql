@@ -59,10 +59,10 @@ def load_dataflow_list():
 
 def show_dataflow_list(columns, rows):
     if rows:
-        colms = st.columns((1,2,2,2,1))
+        dataflow_grid = st.columns((1,2,2,2,1))
         fields = ["ID", "이름", "설명", "최종 수정일시", "상세"]
         # header
-        for col, field_name in zip(colms, fields):
+        for col, field_name in zip(dataflow_grid, fields):
             col.write(field_name)
         # rows
         for index, row in enumerate(rows):
@@ -73,11 +73,73 @@ def show_dataflow_list(columns, rows):
             updated_at_kst = row[columns.index('UPDATED_AT')].astimezone(pytz.timezone('Asia/Seoul'))
             col4.write(updated_at_kst.strftime('%Y-%m-%d %H:%M:%S'))
             detail_button_phold = col5.empty()
-            show_detail = detail_button_phold.button("상세", key=f"dataset_detail_{index}")
+            show_detail = detail_button_phold.button("상세", key=f"dataflow_detail_{index}")
             if show_detail:
                 st.session_state['selected_id'] = row[columns.index('DF_ID')]
                 st.session_state['page'] = 'details'
                 st.rerun()
+
+def load_dataset_list(df_id):
+    try:
+        client = get_bq_client()
+        query = """
+            SELECT DF.DF_ID, DF.DF_NAME, DF.DESC, DSDF.ID, DSDF.DS_ID, DS.DS_NAME, DS.DS_TYPE, DS.TABLE_NAME
+            FROM (SELECT * FROM metatron.dataflow WHERE DF_ID = @df_id) AS DF
+              LEFT JOIN metatron.dataset_dataflow AS DSDF
+                ON DF.DF_ID = DSDF.DF_ID
+              LEFT JOIN metatron.dataset AS DS
+                ON DSDF.DS_ID = DS.DS_ID
+            """
+        print(f'쿼리 실행 : {query}')
+        job_config = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("df_id", "INT64", df_id)
+            ]
+        )
+
+        query_job = client.query(query, job_config=job_config)
+        results = query_job.result()
+
+        if results:
+            columns = [field.name for field in results.schema]
+            rows = [list(row.values()) for row in results]
+
+        return columns, rows
+    
+    except Exception as e:
+        print(f"Error: {e}")
+        return None, None
+    
+    finally:
+        client.close()
+        print('BigQuery connection closed!')
+
+def show_dataset_list(columns, rows):
+    if rows:
+        dataset_grid = st.columns((1,2,2,2,1))
+        fields = ["ID", "이름", "타입", "테이블명", "상세"]
+        # header
+        for col, field_name in zip(dataset_grid, fields):
+            col.write(field_name)
+        # rows
+        for index, row in enumerate(rows):
+            col1, col2, col3, col4, col5 = st.columns((1,2,2,2,1))
+            col1.write(row[columns.index('DS_ID')])
+            col2.write(row[columns.index('DS_NAME')])
+            col3.write(row[columns.index('DS_TYPE')])
+            col4.write(row[columns.index('TABLE_NAME')])
+            detail_button_phold = col5.empty()
+            
+            show_detail = None
+            if row[columns.index('DS_TYPE')] == 'Wrangled':
+                show_detail = detail_button_phold.button("편집", key=f"dataset_modify_{index}")
+            else:
+                st.write('-')
+
+            if show_detail:
+                # 챗봇 화면으로 이동
+                st.session_state['ds_id'] = row[columns.index('DS_ID')]
+                st.switch_page('pages/sql_generator.py')
 
 @st.cache_data(ttl=300)
 def get_dataset_list():
@@ -98,41 +160,6 @@ def get_dataset_list():
         
         print(dataset_list)
         return dataset_list
-    
-    except Exception as e:
-        print(f"Error: {e}")
-        return None, None
-    finally:
-        client.close()
-        print('BigQuery connection closed!')
-
-@st.cache_data(ttl=300)
-def get_dataflow_dataset(df_id):
-    try:
-        client = get_bq_client()
-        query = """
-            SELECT DF.DF_ID, DF.DF_NAME, DF.DESC, DSDF.ID, DSDF.DS_ID, DS.DS_NAME, DS.DS_TYPE, DS.TABLE_NAME
-            FROM (SELECT * FROM metatron.dataflow WHERE DF_ID = @df_id) AS DF
-              LEFT JOIN metatron.dataset_dataflow AS DSDF
-                ON DF.DF_ID = DSDF.DF_ID
-              LEFT JOIN metatron.dataset AS DS
-                ON DSDF.DS_ID = DS.DS_ID
-            """
-        print(f'쿼리 실행 : {query}')
-        job_config = bigquery.QueryJobConfig(
-            query_parameters=[
-                bigquery.ScalarQueryParameter("df_id", "INT64", df_id)
-            ]
-        )
-
-        query_job = client.query(query, job_config=job_config)
-        results = query_job.result()
-        dataflow_dataset_list = []
-        for row in results:
-            dataflow_dataset_list.append({'df_id': row[0], 'df_name': row[1], 'desc': row[2], 'ds_id': row[4], 'ds_name': row[5], 'ds_type': row[6], 'table_name': row[7]})
-
-        print(dataflow_dataset_list)
-        return dataflow_dataset_list
     
     except Exception as e:
         print(f"Error: {e}")
@@ -162,9 +189,8 @@ def show_list():
             dataset_list = get_dataset_list()
             dataflow_name = st.text_input("이름", key="dataflow_name")
             dataflow_desc = st.text_input("설명", key="dataflow_desc")
-            # selected_dataset = st.selectbox("데이터셋을 선택해 주세요.", [dataset["TABLE_NAME"] for dataset in dataset_list], key="dataset_selector")
+
             options = {dataset["name"]: dataset for dataset in dataset_list}
-            # selected_dataset = st.selectbox("데이터셋을 선택해 주세요.", options.keys())
             selected_dataset_name = st.selectbox("데이터셋을 선택해 주세요.", list(options.keys()))
             selected_dataset = options[selected_dataset_name]
             
@@ -293,11 +319,9 @@ def show_details():
         display_node_info(selected_id)
     # 임시 하드코딩 영역 끝
 
-    dataset_list = get_dataflow_dataset(selected_df_id)
-    if dataset_list:
-        df = pd.DataFrame(dataset_list)
-        st.write(f"{df.shape[1]} Columns | {df.shape[0]} Rows")
-        st.dataframe(df, use_container_width=True, hide_index=True)
+    # show grid
+    columns, rows = load_dataset_list(selected_df_id)
+    show_dataset_list(columns,rows)
     
 
 # 현재 페이지 상태에 따라 다른 화면 표시
