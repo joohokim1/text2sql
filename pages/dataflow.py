@@ -1,10 +1,11 @@
 import streamlit as st
+import config
+from google.cloud import bigquery
 from streamlit_flow import streamlit_flow
 from streamlit_flow.elements import StreamlitFlowNode, StreamlitFlowEdge
-from google.cloud import bigquery
-import config
-import pandas as pd
 from datetime import datetime, timezone
+import pandas as pd
+import pytz
 
 # Streamlit 설정
 st.set_page_config(
@@ -18,6 +19,7 @@ if 'page' not in st.session_state:
 
 # BigQuery 클라이언트 설정
 def get_bq_client():
+    print('Connected to BigQuery!')
     return bigquery.Client(location=config.get_config('bigquery.region'))
 
 def load_dataflow_list():
@@ -33,8 +35,13 @@ def load_dataflow_list():
             FROM metatron.dataflow
             ORDER BY UPDATED_AT DESC
             """
+        print(f'쿼리 실행 : {query}')
         query_job = client.query(query)
         results = query_job.result()
+        
+        # 쿼리 결과 출력
+        # df = pd.DataFrame([dict(row) for row in results])
+        # print(df)
 
         if results:
             columns = [field.name for field in results.schema]
@@ -50,6 +57,28 @@ def load_dataflow_list():
         client.close()
         print('BigQuery connection closed!')
 
+def show_dataflow_list(columns, rows):
+    if rows:
+        colms = st.columns((1,2,2,2,1))
+        fields = ["ID", "이름", "설명", "최종 수정일시", "상세"]
+        # header
+        for col, field_name in zip(colms, fields):
+            col.write(field_name)
+        # rows
+        for index, row in enumerate(rows):
+            col1, col2, col3, col4, col5 = st.columns((1,2,2,2,1))
+            col1.write(row[columns.index('DF_ID')])
+            col2.write(row[columns.index('DF_NAME')])
+            col3.write(row[columns.index('DESC')])
+            updated_at_kst = row[columns.index('UPDATED_AT')].astimezone(pytz.timezone('Asia/Seoul'))
+            col4.write(updated_at_kst.strftime('%Y-%m-%d %H:%M:%S'))
+            detail_button_phold = col5.empty()
+            show_detail = detail_button_phold.button("상세", key=f"dataset_detail_{index}")
+            if show_detail:
+                st.session_state['selected_id'] = row[columns.index('DF_ID')]
+                st.session_state['page'] = 'details'
+                st.rerun()
+
 @st.cache_data(ttl=300)
 def get_dataset_list():
     try:
@@ -60,11 +89,14 @@ def get_dataset_list():
             WHERE DS_TYPE = 'Imported'
             ORDER BY TABLE_NAME ASC
             """
+        print(f'쿼리 실행 : {query}')
         query_job = client.query(query)
         results = query_job.result()
         dataset_list = []
         for row in results:
             dataset_list.append({'id': row[0], 'name': row[1]})
+        
+        print(dataset_list)
         return dataset_list
     
     except Exception as e:
@@ -86,6 +118,7 @@ def get_dataflow_dataset(df_id):
               LEFT JOIN metatron.dataset AS DS
                 ON DSDF.DS_ID = DS.DS_ID
             """
+        print(f'쿼리 실행 : {query}')
         job_config = bigquery.QueryJobConfig(
             query_parameters=[
                 bigquery.ScalarQueryParameter("df_id", "INT64", df_id)
@@ -98,6 +131,7 @@ def get_dataflow_dataset(df_id):
         for row in results:
             dataflow_dataset_list.append({'df_id': row[0], 'df_name': row[1], 'desc': row[2], 'ds_id': row[4], 'ds_name': row[5], 'ds_type': row[6], 'table_name': row[7]})
 
+        print(dataflow_dataset_list)
         return dataflow_dataset_list
     
     except Exception as e:
@@ -120,16 +154,7 @@ def show_list():
     
     st.write(f'{len(rows)}개의 데이터가 있습니다.')
 
-    grid = st.container()
-
-    df = pd.DataFrame(rows, columns=columns)
-    grid.dataframe(df, use_container_width=True, hide_index=True, column_config={
-            "DF_ID": "ID",
-            "DF_NAME": "이름",
-            "DESC": "설명",
-            "CREATED_AT": "생성일시",
-            "UPDATED_AT": "최종 수정일시"
-        })
+    show_dataflow_list(columns, rows)
     
     if st.button("데이터플로우 추가"):
         @st.experimental_dialog("Dataflow 생성")
@@ -155,9 +180,11 @@ def show_list():
                             SELECT COALESCE(MAX(df_id), 0) + 1 AS next_df_id
                             FROM `metatron.dataflow`
                         """
+                        print(f'쿼리 실행 : {query}')
                         client = get_bq_client()
                         query_job = client.query(query)
                         next_df_id = [row.next_df_id for row in query_job.result()][0]
+                        print(f'next_df_id : {next_df_id}')
                         current_time = datetime.now(timezone.utc)
                         df = pd.DataFrame({
                             "df_id": [next_df_id],
@@ -172,11 +199,13 @@ def show_list():
                             SELECT COALESCE(MAX(id), 0) + 1 AS next_id
                             FROM `metatron.dataset_dataflow`
                         """
+                        print(f'쿼리 실행 : {query}')
                         df_table_ref = client.dataset("metatron").table("dataflow")
                         df_table = client.get_table(df_table_ref)
 
                         query_job = client.query(query)
                         next_id = [row.next_id for row in query_job.result()][0]
+                        print(f'next_id : {next_id}')
                         dsdf = pd.DataFrame({
                             "id": [next_id],
                             "df_id": [next_df_id],
@@ -209,34 +238,16 @@ def show_list():
                         print('BigQuery connection closed!')
                     
         modal_dialog()
-    
-    if st.button("데이터플로우 상세보기"):
-        @st.experimental_dialog("Dataflow 상세보기")
-        def modal_dialog():
-            dataflow_id = st.text_input("ID", key="dataflow_id")
-            
-            if st.button("상세보기", key="detail_button"):
-                if not dataflow_id or dataflow_id == "":
-                    st.error("데이터플로우 ID를 입력해주세요.")
-                else:
-                    st.session_state['selected_id'] = dataflow_id
-                    st.session_state['page'] = 'details'
-                    st.rerun()
-                    
-        modal_dialog()
 
 def show_details():
     st.header('세부 내용 화면')
     selected_df_id = st.session_state.get('selected_id', 'N/A')
-    print(f'선택한 Dataflow Id: {selected_df_id}')
     
     if st.button('목록 보기'):
         st.session_state['page'] = 'list'
         st.rerun()
-    
-    dataset_list = get_dataflow_dataset(selected_df_id)
-    print('dataset list: ', dataset_list)
 
+    # 임시 하드코딩 영역
     nodes = [StreamlitFlowNode(id='1', pos=(100, 100), data={'id': 'text2sql-0', 'label': 'adot_applog_prd_all', 'type': 'IMPORTED', 'database': 'metatron', 'table': 'adot_applog_prd_all'}, node_type='input', source_position='right', draggable=False),
             StreamlitFlowNode('2', (275, 50), {'id': 'text2sql-1', 'label': '01. 데이터 클렌징', 'type': 'WRANGLED'}, 'default', 'right', 'left', draggable=False),
             StreamlitFlowNode('3', (275, 150), {'id': 'text2sql-2', 'label': '02. 데이터 집계', 'type': 'WRANGLED'}, 'default', 'right', 'left', draggable=False)]
@@ -280,6 +291,14 @@ def show_details():
 
     if selected_id:
         display_node_info(selected_id)
+    # 임시 하드코딩 영역 끝
+
+    dataset_list = get_dataflow_dataset(selected_df_id)
+    if dataset_list:
+        df = pd.DataFrame(dataset_list)
+        st.write(f"{df.shape[1]} Columns | {df.shape[0]} Rows")
+        st.dataframe(df, use_container_width=True, hide_index=True)
+    
 
 # 현재 페이지 상태에 따라 다른 화면 표시
 if st.session_state['page'] == 'list':
