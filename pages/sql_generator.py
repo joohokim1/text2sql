@@ -11,6 +11,7 @@ st.set_page_config(
 )
 
 # Get dataset id
+ds_id = None
 if 'ds_id' in st.session_state:
     ds_id = st.session_state['ds_id']
     print(f"ds_id is {ds_id}")
