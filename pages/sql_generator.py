@@ -114,7 +114,7 @@ def sql_generator():
                 st.session_state.results.append((columns, results))
 
                 # Save question and relative sql
-                if st.session_state.results[i]:
+                if idx and idx != "" and st.session_state.results[idx]:
                     # TODO: 기존 사용자 질의 최초 실행 시 세션에 넣는 작업
                     print()
                 elif ds_id:
