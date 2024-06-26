@@ -94,7 +94,11 @@ def show_dataset_detail_usage(columns, rows):
             detail_button_phold = col5.empty()
             show_detail = detail_button_phold.button("상세", key=f"dataset_detail_usage_{index}")
             if show_detail:
+                # TODO 워크플로우 상세화면으로 이동
                 print(f"DATAFLOW ID : {row[columns.index('df_id')]}")
+                st.session_state['selected_id'] = row[columns.index('df_id')]
+                st.session_state['page'] = 'details'
+                st.switch_page('pages/dataflow.py')
 
 def show_dataset_detail(columns, row):
 
