@@ -61,10 +61,43 @@ def get_dataset_list():
             """
         query_job = client.query(query)
         results = query_job.result()
-        filtered_tables = []
+        dataset_list = []
         for row in results:
-            filtered_tables.append({'id': row[0], 'name': row[1]})
-        return filtered_tables
+            dataset_list.append({'id': row[0], 'name': row[1]})
+        return dataset_list
+    
+    except Exception as e:
+        print(f"Error: {e}")
+        return None, None
+    finally:
+        client.close()
+        print('BigQuery connection closed!')
+
+@st.cache_data(ttl=300)
+def get_dataflow_dataset(df_id):
+    try:
+        client = get_bq_client()
+        query = """
+            SELECT DF.DF_ID, DF.DF_NAME, DF.DESC, DSDF.ID, DSDF.DS_ID, DS.DS_NAME, DS.DS_TYPE, DS.TABLE_NAME
+            FROM (SELECT * FROM metatron.dataflow WHERE DF_ID = @df_id) AS DF
+              LEFT JOIN metatron.dataset_dataflow AS DSDF
+                ON DF.DF_ID = DSDF.DF_ID
+              LEFT JOIN metatron.dataset AS DS
+                ON DSDF.DS_ID = DS.DS_ID
+            """
+        job_config = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("df_id", "INT64", df_id)
+            ]
+        )
+
+        query_job = client.query(query, job_config=job_config)
+        results = query_job.result()
+        dataflow_dataset_list = []
+        for row in results:
+            dataflow_dataset_list.append({'df_id': row[0], 'df_name': row[1], 'desc': row[2], 'ds_id': row[4], 'ds_name': row[5], 'ds_type': row[6], 'table_name': row[7]})
+
+        return dataflow_dataset_list
     
     except Exception as e:
         print(f"Error: {e}")
@@ -187,18 +220,21 @@ def show_list():
                 else:
                     st.session_state['selected_id'] = dataflow_id
                     st.session_state['page'] = 'details'
-                    st.experimental_rerun()
+                    st.rerun()
                     
         modal_dialog()
 
 def show_details():
     st.header('세부 내용 화면')
-    selected_id = st.session_state.get('selected_id', 'N/A')
-    print(f'선택한 ID: {selected_id}')
+    selected_df_id = st.session_state.get('selected_id', 'N/A')
+    print(f'선택한 Dataflow Id: {selected_df_id}')
     
-    if st.button('뒤로 가기'):
+    if st.button('목록 보기'):
         st.session_state['page'] = 'list'
         st.rerun()
+    
+    dataset_list = get_dataflow_dataset(selected_df_id)
+    print('dataset list: ', dataset_list)
 
     nodes = [StreamlitFlowNode(id='1', pos=(100, 100), data={'id': 'text2sql-0', 'label': 'adot_applog_prd_all', 'type': 'IMPORTED', 'database': 'metatron', 'table': 'adot_applog_prd_all'}, node_type='input', source_position='right', draggable=False),
             StreamlitFlowNode('2', (275, 50), {'id': 'text2sql-1', 'label': '01. 데이터 클렌징', 'type': 'WRANGLED'}, 'default', 'right', 'left', draggable=False),
