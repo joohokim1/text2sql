@@ -52,7 +52,6 @@ def load_dataset_list():
                 CREATED_AT,
                 UPDATED_AT
             FROM metatron.dataset
-            WHERE DS_TYPE = 'Imported'
             ORDER BY UPDATED_AT DESC
             """
         query_job = client.query(query)
