@@ -57,6 +57,7 @@ def get_dataset_list():
         query = """
             SELECT DS_ID, TABLE_NAME
             FROM metatron.dataset
+            WHERE DS_TYPE = 'Imported'
             ORDER BY TABLE_NAME ASC
             """
         query_job = client.query(query)
