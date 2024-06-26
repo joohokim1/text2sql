@@ -18,7 +18,7 @@ kst = pytz.timezone('Asia/Seoul')
 def get_bq_client():
     return bigquery.Client(location=config.get_config('bigquery.region'))
 
-@st.cache_data(ttl=300)
+# @st.cache_data(ttl=300)
 def get_filtered_tables():
     try:
         client = get_bq_client()
