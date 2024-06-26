@@ -3,6 +3,7 @@ import pandas as pd
 from google.cloud import bigquery
 import config
 from datetime import datetime, timezone
+import pytz
 
 # Streamlit 설정
 st.set_page_config(
@@ -10,6 +11,8 @@ st.set_page_config(
     page_icon="🤖",
     layout="wide",
 )
+
+kst = pytz.timezone('Asia/Seoul')
 
 # BigQuery 클라이언트 설정
 def get_bq_client():
@@ -70,21 +73,119 @@ def load_dataset_list():
         client.close()
         print('BigQuery connection closed!')
 
+def show_dataset_detail_usage(columns, rows):
+    if rows:
+        df = pd.DataFrame(rows, columns=columns)
+        st.write("사용처")
+        colms = st.columns((2,2,2,2,1))
+        fields = ["이름", "설명", "생성일시", "최종 수정일시", "상세"]
+        for col, field_name in zip(colms, fields):
+            #header
+            col.write(field_name)
+        
+        for index, row in enumerate(rows):
+            col1, col2, col3, col4, col5 = st.columns((2,2,2,2,1))
+            col1.write(row[columns.index('df_name')])
+            col2.write(row[columns.index('desc')])
+            created_at_kst = row[columns.index('created_at')].astimezone(kst)
+            col3.write(created_at_kst.strftime('%Y-%m-%d %H:%M:%S'))
+            updated_at_kst = row[columns.index('updated_at')].astimezone(kst)
+            col4.write(updated_at_kst.strftime('%Y-%m-%d %H:%M:%S'))
+            detail_button_phold = col5.empty()
+            show_detail = detail_button_phold.button("상세", key=f"dataset_detail_usage_{index}")
+            if show_detail:
+                print(f"DATAFLOW ID : {row[columns.index('df_id')]}")
+
+def show_dataset_detail(columns, row):
+
+    if "dataset_detail_data" in st.session_state:
+        del st.session_state.dataset_detail_data 
+
+    @st.experimental_dialog("Dataset 정보", width="large")
+    def modal_dialog():
+        try:
+            table_name = row[columns.index('TABLE_NAME')]
+            ds_type = row[columns.index('DS_TYPE')]
+            ds_id = row[columns.index('DS_ID')]
+
+            client = get_bq_client()
+            if ds_type == 'Imported':
+                query1 = f"""
+                SELECT * FROM `metatron.{table_name}` LIMIT 10
+                """
+            elif ds_type == 'Wrangled':
+                pre_query = f"""
+                SELECT result_sql FROM `metatron.rule`
+                # WHERE ds_id = {ds_id}
+                ORDER BY rule_id DESC
+                LIMIT 1
+                """
+
+                with st.spinner("데이터를 불러오는 중..."):
+                    pre_query_job = client.query(pre_query)
+                    pre_result = pre_query_job.result()
+
+                for data in pre_result:
+                    query1 = data["result_sql"]
+                if 'LIMIT' not in query1.upper():
+                    query1 += ' LIMIT 10'    
+
+            with st.spinner("데이터를 불러오는 중..."):
+                query_job1 = client.query(query1)
+                results1 = query_job1.result()
+
+                df1 = results1.to_dataframe()
+                st.session_state.dataset_detail_data = df1
+
+                st.write("데이터")
+                # st.write(df1)
+                st.write(st.session_state.dataset_detail_data)
+
+            query2 = f"""
+                SELECT * FROM `metatron.dataflow`
+                WHERE df_id IN (SELECT df_id FROM `metatron.dataset_dataflow` WHERE ds_id = {ds_id})
+            """
+            print(query2)
+
+            with st.spinner("데이터를 불러오는 중..."):
+                query_job2 = client.query(query2)
+                results2 = query_job2.result()
+
+            columns2 = [field.name for field in results2.schema]
+            rows2 = [list(row2.values()) for row2 in results2]
+
+            show_dataset_detail_usage(columns2, rows2)
+
+        except Exception as e:
+            print(f"Error: {e}")
+            return None, None
+        finally:
+            client.close()
+            print('BigQuery connection closed!')
+
+    modal_dialog()
+
 def show_dataset_list(columns, rows):
     if rows:
-        st.write(f"{len(rows)} 개 데이터가 있습니다")
         df = pd.DataFrame(rows, columns=columns)
-        df_display = df.drop(columns=['DS_ID'])
+        colms = st.columns((2,1,2,2,1))
+        fields = ["이름", "타입", "소스", "최종 수정일시", "상세"]
+        for col, field_name in zip(colms, fields):
+            #header
+            col.write(field_name)
+        
+        for index, row in enumerate(rows):
+            col1, col2, col3, col4, col5 = st.columns((2,1,2,2,1))
+            col1.write(row[columns.index('DS_NAME')])
+            col2.write(row[columns.index('DS_TYPE')])
+            col3.write(row[columns.index('TABLE_NAME')])
+            updated_at_kst = row[columns.index('UPDATED_AT')].astimezone(kst)
+            col4.write(updated_at_kst.strftime('%Y-%m-%d %H:%M:%S'))
+            detail_button_phold = col5.empty()
+            show_detail = detail_button_phold.button("상세", key=f"dataset_detail_{index}")
+            if show_detail:
+                show_dataset_detail(columns, row)
 
-        st.dataframe(df_display, use_container_width=True, hide_index=True, column_config={
-            "DS_NAME": "이름",
-            "DS_TYPE": "타입",
-            "TABLE_NAME": "소스",
-            "CREATED_AT": "생성일시",
-            "UPDATED_AT": "최종 수정일시"
-        })
-    else:
-        st.write(f"데이터가 존재하지 않습니다")
 
 def main():
     st.title("Dataset 설정")
@@ -97,10 +198,11 @@ def main():
         columns = st.session_state.dataset_list_columns
         rows = st.session_state.dataset_list_rows
     
+    # show_dataset_list(columns, rows)
     show_dataset_list(columns, rows)
 
     # "데이터셋 추가" 버튼 클릭 시 다이얼로그 표시
-    if st.button("데이터셋 추가"):
+    if st.button("데이터셋 추가", type='primary'):
         @st.experimental_dialog("Dataset 생성")
         def modal_dialog():
             selected_table = st.selectbox("테이블을 선택해 주세요.", get_filtered_tables(), key="table_selector")
