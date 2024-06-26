@@ -50,6 +50,29 @@ def load_dataflow_list():
         client.close()
         print('BigQuery connection closed!')
 
+@st.cache_data(ttl=300)
+def get_dataset_list():
+    try:
+        client = get_bq_client()
+        query = """
+            SELECT DS_ID, TABLE_NAME
+            FROM metatron.dataset
+            ORDER BY TABLE_NAME ASC
+            """
+        query_job = client.query(query)
+        results = query_job.result()
+        filtered_tables = []
+        for row in results:
+            filtered_tables.append({'id': row[0], 'name': row[1]})
+        return filtered_tables
+    
+    except Exception as e:
+        print(f"Error: {e}")
+        return None, None
+    finally:
+        client.close()
+        print('BigQuery connection closed!')
+
 def show_list():
     st.title('Dataflow 설정')
 
@@ -77,14 +100,23 @@ def show_list():
     if st.button("데이터플로우 추가"):
         @st.experimental_dialog("Dataflow 생성")
         def modal_dialog():
+            dataset_list = get_dataset_list()
             dataflow_name = st.text_input("이름", key="dataflow_name")
             dataflow_desc = st.text_input("설명", key="dataflow_desc")
+            # selected_dataset = st.selectbox("데이터셋을 선택해 주세요.", [dataset["TABLE_NAME"] for dataset in dataset_list], key="dataset_selector")
+            options = {dataset["name"]: dataset for dataset in dataset_list}
+            # selected_dataset = st.selectbox("데이터셋을 선택해 주세요.", options.keys())
+            selected_dataset_name = st.selectbox("데이터셋을 선택해 주세요.", list(options.keys()))
+            selected_dataset = options[selected_dataset_name]
             
             if st.button("완료", key="confirm_button"):
                 if not dataflow_name or dataflow_name == "":
                     st.error("데이터플로우 이름을 입력해주세요.")
+                elif not selected_dataset or selected_dataset["id"] == "":
+                    st.error("데이터셋을 선택해주세요.")
                 else:
                     try:
+                        # dataflow 추가
                         query = """
                             SELECT COALESCE(MAX(df_id), 0) + 1 AS next_df_id
                             FROM `metatron.dataflow`
@@ -101,13 +133,36 @@ def show_list():
                             "updated_at": [current_time]
                         })
 
-                        table_ref = client.dataset("metatron").table("dataflow")
-                        table = client.get_table(table_ref)
+                        # dataset_dataflow 추가
+                        query = """
+                            SELECT COALESCE(MAX(id), 0) + 1 AS next_id
+                            FROM `metatron.dataset_dataflow`
+                        """
+                        df_table_ref = client.dataset("metatron").table("dataflow")
+                        df_table = client.get_table(df_table_ref)
+
+                        query_job = client.query(query)
+                        next_id = [row.next_id for row in query_job.result()][0]
+                        dsdf = pd.DataFrame({
+                            "id": [next_id],
+                            "df_id": [next_df_id],
+                            "ds_id": [selected_dataset["id"]],
+                            "created_at": [current_time],
+                            "updated_at": [current_time]
+                        })
+
+                        df_table_ref = client.dataset("metatron").table("dataflow")
+                        df_table = client.get_table(df_table_ref)
+
+                        dsdf_table_ref = client.dataset("metatron").table("dataset_dataflow")
+                        dsdf_table = client.get_table(dsdf_table_ref)
 
                         with st.spinner("데이터플로우를 추가하는 중..."):
-                            load_job = client.load_table_from_dataframe(df, table)
-                            load_job.result()
-
+                            df_load_job = client.load_table_from_dataframe(df, df_table)
+                            dsdf_load_job_ = client.load_table_from_dataframe(dsdf, dsdf_table)
+                            df_load_job.result()
+                            dsdf_load_job_.result()
+                            
                         del st.session_state.dataflow_list_columns
                         del st.session_state.dataflow_list_rows
                         
