@@ -20,5 +20,5 @@ def get_config(prop):
     except KeyError:
         raise KeyError(f"Property '{prop}' not found in the configuration.")
     
-bigquery_dataset = get_config('bigquery.dataset')
+# bigquery_dataset = get_config('bigquery.dataset')
 
