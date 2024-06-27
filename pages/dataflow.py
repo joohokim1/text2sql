@@ -133,8 +133,6 @@ def show_dataset_list(columns, rows):
             show_detail = None
             if row[columns.index('DS_TYPE')] == 'Wrangled':
                 show_detail = detail_button_phold.button("편집", key=f"dataset_modify_{index}")
-            else:
-                st.write('-')
 
             if show_detail:
                 # 챗봇 화면으로 이동
@@ -274,53 +272,73 @@ def show_details():
         st.rerun()
 
     # 임시 하드코딩 영역
-    nodes = [StreamlitFlowNode(id='1', pos=(100, 100), data={'id': 'text2sql-0', 'label': 'adot_applog_prd_all', 'type': 'IMPORTED', 'database': 'metatron', 'table': 'adot_applog_prd_all'}, node_type='input', source_position='right', draggable=False),
-            StreamlitFlowNode('2', (275, 50), {'id': 'text2sql-1', 'label': '01. 데이터 클렌징', 'type': 'WRANGLED'}, 'default', 'right', 'left', draggable=False),
-            StreamlitFlowNode('3', (275, 150), {'id': 'text2sql-2', 'label': '02. 데이터 집계', 'type': 'WRANGLED'}, 'default', 'right', 'left', draggable=False)]
+    # nodes = [StreamlitFlowNode(id='1', pos=(100, 100), data={'id': 'text2sql-0', 'label': 'adot_applog_prd_all', 'type': 'IMPORTED', 'database': 'metatron', 'table': 'adot_applog_prd_all'}, node_type='input', source_position='right', draggable=False),
+    #         StreamlitFlowNode('2', (275, 50), {'id': 'text2sql-1', 'label': '01. 데이터 클렌징', 'type': 'WRANGLED'}, 'default', 'right', 'left', draggable=False),
+    #         StreamlitFlowNode('3', (275, 150), {'id': 'text2sql-2', 'label': '02. 데이터 집계', 'type': 'WRANGLED'}, 'default', 'right', 'left', draggable=False)]
 
-    edges = [StreamlitFlowEdge('1-2', '1', '2', animated=True),
-            StreamlitFlowEdge('1-3', '1', '3', animated=True)]
+    # edges = [StreamlitFlowEdge('1-2', '1', '2', animated=True),
+    #         StreamlitFlowEdge('1-3', '1', '3', animated=True)]
 
-    selected_id = streamlit_flow('ret_val_flow',
-                    nodes,
-                    edges,
-                    fit_view=True,
-                    get_node_on_click=True,
-                    get_edge_on_click=True)
+    # selected_id = streamlit_flow('ret_val_flow',
+    #                 nodes,
+    #                 edges,
+    #                 fit_view=True,
+    #                 get_node_on_click=True,
+    #                 get_edge_on_click=True)
 
-    # TODO
-    def add_new_dataset():
-        print()
+    # # TODO
+    # def add_new_dataset():
+    #     print()
 
-    def display_node_info(node_id):
-        node = next((node for node in nodes if node.id == node_id), None)
-        data = []
-        if node:
-            node_data = {
-                '이름': node.data['label'],
-                '타입': node.data['type']
-            }
-            if node.data['type'] == 'IMPORTED':
-                node_data['데이터베이스'] = node.data['database']
-                node_data['테이블'] = node.data['table']
+    # def display_node_info(node_id):
+    #     node = next((node for node in nodes if node.id == node_id), None)
+    #     data = []
+    #     if node:
+    #         node_data = {
+    #             '이름': node.data['label'],
+    #             '타입': node.data['type']
+    #         }
+    #         if node.data['type'] == 'IMPORTED':
+    #             node_data['데이터베이스'] = node.data['database']
+    #             node_data['테이블'] = node.data['table']
 
-            data.append(node_data)
-            df = pd.DataFrame(data)
+    #         data.append(node_data)
+    #         df = pd.DataFrame(data)
 
-            st.dataframe(df)
+    #         st.dataframe(df)
 
-            if node.data['type'] == 'IMPORTED':
-                st.button("새로운 데이터셋 생성", type="primary", on_click=add_new_dataset)
-            elif node.data['type'] == 'WRANGLED':
-                id = node.data['id']
-                link = st.link_button("룰 편집", type="primary", url=f"http://localhost:8501/sql_generator/?workflow_name={id}")
+    #         if node.data['type'] == 'IMPORTED':
+    #             st.button("새로운 데이터셋 생성", type="primary", on_click=add_new_dataset)
+    #         elif node.data['type'] == 'WRANGLED':
+    #             id = node.data['id']
+    #             link = st.link_button("룰 편집", type="primary", url=f"http://localhost:8501/sql_generator/?workflow_name={id}")
 
-    if selected_id:
-        display_node_info(selected_id)
+    # if selected_id:
+    #     display_node_info(selected_id)
     # 임시 하드코딩 영역 끝
-
+    
     # show grid
     columns, rows = load_dataset_list(selected_df_id)
+    if len(rows) > 0:
+        dataflow_desc = f"""
+            <ul>
+                <li class='small-font'>데이터플로우 ID: {rows[0][0]}</li>
+                <li class='small-font'>데이터 플로우 이름: {rows[0][1]}</li>
+                <li class='small-font'>설명: {rows[0][2]}</li>
+                <li class='small-font'>타입: {rows[0][6]}</li>
+            </ul>
+            """
+        st.markdown(dataflow_desc, unsafe_allow_html=True)
+
+        # 사용자 정의 CSS 삽입
+        st.markdown("""
+            <style>
+            .small-font {
+                font-size: 14px !important;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+    
     show_dataset_list(columns,rows)
     
 
