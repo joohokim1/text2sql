@@ -133,8 +133,6 @@ def show_dataset_list(columns, rows):
             show_detail = None
             if row[columns.index('DS_TYPE')] == 'Wrangled':
                 show_detail = detail_button_phold.button("편집", key=f"dataset_modify_{index}")
-            else:
-                st.write('-')
 
             if show_detail:
                 # 챗봇 화면으로 이동
@@ -318,9 +316,29 @@ def show_details():
     # if selected_id:
     #     display_node_info(selected_id)
     # 임시 하드코딩 영역 끝
-
+    
     # show grid
     columns, rows = load_dataset_list(selected_df_id)
+    if len(rows) > 0:
+        dataflow_desc = f"""
+            <ul>
+                <li class='small-font'>데이터플로우 ID: {rows[0][0]}</li>
+                <li class='small-font'>데이터 플로우 이름: {rows[0][1]}</li>
+                <li class='small-font'>설명: {rows[0][2]}</li>
+                <li class='small-font'>타입: {rows[0][6]}</li>
+            </ul>
+            """
+        st.markdown(dataflow_desc, unsafe_allow_html=True)
+
+        # 사용자 정의 CSS 삽입
+        st.markdown("""
+            <style>
+            .small-font {
+                font-size: 14px !important;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+    
     show_dataset_list(columns,rows)
     
 
