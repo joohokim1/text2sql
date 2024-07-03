@@ -122,12 +122,12 @@ def get_sql_query_from_claude(natural_language_query, context=None):
         api_key=anthropic_key
     )
 
-    message = client.messages.create(
-        model=config.get_config('anthropic.model'),
-        system="너는 Google BigQuery 전문가야. 답변은 부연설명 없이 개행문자가 포함되지 않고 정렬된 SQL 형태로 답변해줘. 컬럼명은 항상 영문으로 설정하고, 지시하지 않은 타입 변환이나 치환과 불필요한 distinct, order by 하지마. 만약 질문 자체가 SELECT SQL문이라면, 질문 그대로 정렬된 SQL문으로 응답해줘. Let's think step by step.",
-        max_tokens=1024,
-        temperature=0,
-        messages=[
+    params =  {
+        "model": config.get_config('anthropic.model'),
+        "system": "너는 Google BigQuery 전문가야. 답변은 부연설명 없이 개행문자가 포함되지 않고 정렬된 SQL 형태로 답변해줘. 컬럼명은 항상 영문으로 설정하고, 지시하지 않은 타입 변환이나 치환과 불필요한 distinct, order by 하지마. 만약 질문 자체가 SELECT SQL문이라면, 질문 그대로 정렬된 SQL문으로 응답해줘. Let's think step by step.",
+        "max_tokens": 1024,
+        "temperature": 0,
+        "messages": [
             {
                 "role": "user",
                 "content": [
@@ -138,7 +138,10 @@ def get_sql_query_from_claude(natural_language_query, context=None):
                 ]
             }
         ]
-    )
+    }
+    print(f"Cluade Params : {params}")
+
+    message = client.messages.create(**params)
     return message.content[0].text
 
 def save_question(ds_id, user_question, result_sql):
