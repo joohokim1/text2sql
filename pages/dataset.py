@@ -41,7 +41,6 @@ def get_filtered_tables():
         return None, None
     finally:
         client.close()
-        print('BigQuery connection closed!')
 
 def load_dataset_list():
     try:
@@ -71,7 +70,6 @@ def load_dataset_list():
     
     finally:
         client.close()
-        print('BigQuery connection closed!')
 
 def show_dataset_detail_usage(columns, rows):
     if rows:
@@ -165,7 +163,6 @@ def show_dataset_detail(columns, row):
             return None, None
         finally:
             client.close()
-            print('BigQuery connection closed!')
 
     modal_dialog()
 
@@ -252,7 +249,6 @@ def main():
                         return None, None
                     finally:
                         client.close()
-                        print('BigQuery connection closed!')
                     
         modal_dialog()
     

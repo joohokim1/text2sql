@@ -55,7 +55,6 @@ def load_dataflow_list():
     
     finally:
         client.close()
-        print('BigQuery connection closed!')
 
 def show_dataflow_list(columns, rows):
     if rows:
@@ -113,7 +112,6 @@ def load_dataset_list(df_id):
     
     finally:
         client.close()
-        print('BigQuery connection closed!')
 
 def show_dataset_list(columns, rows):
     if rows:
@@ -169,7 +167,6 @@ def get_dataset_list():
         return None, None
     finally:
         client.close()
-        print('BigQuery connection closed!')
 
 def show_list():
     st.title('Dataflow 설정')
@@ -264,7 +261,6 @@ def show_list():
                         return None, None
                     finally:
                         client.close()
-                        print('BigQuery connection closed!')
                     
         modal_dialog()
 

@@ -86,7 +86,6 @@ def on_app_start():
 
 
     client.close()
-    print('BigQuery connection closed!')
 
 def execute_query_and_get_results(sql_query, params=None):
     try:
@@ -116,7 +115,6 @@ def execute_query_and_get_results(sql_query, params=None):
 
     finally:
         client.close()
-        print('BigQuery connection closed!')
 
 def get_sql_query_from_claude(natural_language_query, context=None):
 
@@ -191,4 +189,3 @@ def save_question(ds_id, user_question, result_sql):
             return None, None
         finally:
             client.close()
-            print('BigQuery connection closed!')
