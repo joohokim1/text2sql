@@ -83,12 +83,13 @@ def load_dataset_list(df_id):
     try:
         client = get_bq_client()
         query = """
-            SELECT DF.DF_ID, DF.DF_NAME, DF.DESC, DSDF.ID, DSDF.DS_ID, DS.DS_NAME, DS.DS_TYPE, DS.TABLE_NAME
+            SELECT DF.DF_ID, DF.DF_NAME, DF.DESC, DSDF.ID, DS.DS_ID, DS.DS_NAME, DS.DS_TYPE, DS.TABLE_NAME
             FROM (SELECT * FROM metatron.dataflow WHERE DF_ID = @df_id) AS DF
               LEFT JOIN metatron.dataset_dataflow AS DSDF
                 ON DF.DF_ID = DSDF.DF_ID
               LEFT JOIN metatron.dataset AS DS
                 ON DSDF.DS_ID = DS.DS_ID
+            ORDER BY DS.DS_ID
             """
         print(f'쿼리 실행 : {query}')
         job_config = bigquery.QueryJobConfig(
@@ -127,7 +128,11 @@ def show_dataset_list(columns, rows):
             col1.write(row[columns.index('DS_ID')])
             col2.write(row[columns.index('DS_NAME')])
             col3.write(row[columns.index('DS_TYPE')])
-            col4.write(row[columns.index('TABLE_NAME')])
+            if row[columns.index('TABLE_NAME')]:
+                table_name = row[columns.index('TABLE_NAME')]
+            else:
+                table_name = '—'
+            col4.write(table_name)
             detail_button_phold = col5.empty()
             
             show_detail = None
@@ -270,6 +275,78 @@ def show_details():
     if st.button('목록 보기'):
         st.session_state['page'] = 'list'
         st.rerun()
+    if st.button('데이터셋 추가'):
+        @st.experimental_dialog("데이터셋 추가")
+        def modal_dialog():
+            dataset_name = st.text_input("이름", key="dataset_name")
+            
+            if st.button("완료", key="confirm_button"):
+                if not dataset_name or dataset_name == "":
+                    st.error("데이터셋 이름을 입력해주세요.")
+                else:
+                    try:
+                        # dataset 추가
+                        query = """
+                            SELECT COALESCE(MAX(ds_id), 0) + 1 AS next_ds_id
+                            FROM `metatron.dataset`
+                        """
+                        print(f'쿼리 실행 : {query}')
+                        client = get_bq_client()
+                        query_job = client.query(query)
+                        next_ds_id = [row.next_ds_id for row in query_job.result()][0]
+                        print(f'next_ds_id : {next_ds_id}')
+                        current_time = datetime.now(timezone.utc)
+                        ds = pd.DataFrame({
+                            "ds_id": [next_ds_id],
+                            "ds_name": [dataset_name],
+                            "ds_type": ["Wrangled"],
+                            "created_at": [current_time],
+                            "updated_at": [current_time]
+                        })
+
+                        # dataset_dataflow 추가
+                        query = """
+                            SELECT COALESCE(MAX(id), 0) + 1 AS next_id
+                            FROM `metatron.dataset_dataflow`
+                        """
+                        print(f'쿼리 실행 : {query}')
+                        df_table_ref = client.dataset("metatron").table("dataflow")
+                        df_table = client.get_table(df_table_ref)
+
+                        query_job = client.query(query)
+                        next_id = [row.next_id for row in query_job.result()][0]
+                        print(f'next_id : {next_id}')
+                        dsdf = pd.DataFrame({
+                            "id": [next_id],
+                            "df_id": [selected_df_id], # TODO: 현재 df_id 맞는지?
+                            "ds_id": [next_ds_id],
+                            "created_at": [current_time],
+                            "updated_at": [current_time]
+                        })
+
+                        ds_table_ref = client.dataset("metatron").table("dataset")
+                        ds_table = client.get_table(ds_table_ref)
+
+                        dsdf_table_ref = client.dataset("metatron").table("dataset_dataflow")
+                        dsdf_table = client.get_table(dsdf_table_ref)
+
+                        with st.spinner("데이터셋을 추가하는 중..."):
+                            ds_load_job = client.load_table_from_dataframe(ds, ds_table)
+                            dsdf_load_job_ = client.load_table_from_dataframe(dsdf, dsdf_table)
+                            ds_load_job.result()
+                            dsdf_load_job_.result()
+                            
+                        del st.session_state.dataflow_list_columns
+                        del st.session_state.dataflow_list_rows
+                        
+                        st.rerun()
+                    except Exception as e:
+                        print(f"Error: {e}")
+                        return None, None
+                    finally:
+                        client.close()
+                    
+        modal_dialog()
 
     # 임시 하드코딩 영역
     # nodes = [StreamlitFlowNode(id='1', pos=(100, 100), data={'id': 'text2sql-0', 'label': 'adot_applog_prd_all', 'type': 'IMPORTED', 'database': 'metatron', 'table': 'adot_applog_prd_all'}, node_type='input', source_position='right', draggable=False),

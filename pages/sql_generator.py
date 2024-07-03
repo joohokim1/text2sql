@@ -62,6 +62,17 @@ def sql_generator():
         for row in results:
             st.session_state.queries.append((row[0], row[1]))
         
+        if len(st.session_state.queries) != 0:
+            user_question, sql_query = st.session_state.queries[len(st.session_state.queries)-1]
+            print(f"질의 : {user_question}")
+            columns, results = be.execute_query_and_get_results(sql_query)
+
+            st.session_state.results.append((columns, results))
+            grid.write(f"{len(columns)} Columns | {len(results)} Rows")
+            df = pd.DataFrame(results, columns=columns)
+            grid.dataframe(df, use_container_width=True)
+
+
     # 사용자 입력
     query = st.chat_input("질의할 내용을 입력해 주세요.")
 
